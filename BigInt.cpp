@@ -17,9 +17,29 @@ BigInt::BigInt(string number)
 		negative = 1;
 	}
 
-	for (int i = number.size(); i > int(negative); i--)
+	for (long long i = number.size(); i > long long(negative); i--)
 	{
 		digit.push_back(number[i - 1] - '0');
+	}
+
+	normalize();
+
+	return;
+}
+BigInt::BigInt(int number)
+{
+	negative = 0;
+	digit.clear();
+
+	if (number < 0)
+	{
+		negative = 1;
+		number *= -1;
+	}
+
+	for (; number; number /= 10)
+	{
+		digit.push_back(number % 10);
 	}
 
 	return;
@@ -42,21 +62,23 @@ BigInt::BigInt(long long number)
 
 	return;
 }
-BigInt::BigInt(vector < int > _digit, bool _negative)
+BigInt::BigInt(vector < long long > _digit, bool _negative)
 {
 	digit = _digit;
 	negative = _negative;
 
+	normalize();
+
 	return;
 }
 
-vector < int > BigInt::getDigit()
+vector < long long > BigInt::getDigit()
 {
 	normalize();
 
 	return digit;
 }
-int BigInt::getNegative()
+long long BigInt::getNegative()
 {
 	normalize();
 
@@ -67,11 +89,39 @@ BigInt BigInt::abs()
 {
 	return BigInt(digit, 0);
 }
+
 BigInt BigInt::sqrt()
 {
-	return *this;
+	BigInt l = 0;
+	BigInt r = *this;
+	BigInt mid;
+	
+	for (; l + 1 < r; )
+	{
+
+		mid = (l + r);
+		mid = divBy2(mid);
+
+		if (mid * mid > *this)
+		{
+			r = mid;
+		}
+		else
+		{
+			l = mid;
+		}
+	}
+
+	if (r * r > * this)
+	{
+		return l;
+	}
+	else
+	{
+		return r;
+	}
 }
-int BigInt::sign()
+long long BigInt::sign()
 {
 	if (digit.size() == 0)
 	{
@@ -90,7 +140,112 @@ void BigInt::normalize()
 {
 	for (; digit.size() && digit.back() == 0; digit.pop_back()) {}
 
+	if (digit.size() == 0)
+	{
+		negative = 0;
+	}
+
 	return;
+}
+
+vector < complex < double > > fft(const vector < long long >& input)
+{
+	vector < complex < double > > temp;
+
+	for (long long i = 0; i < input.size(); i++)
+	{
+		temp.push_back(complex<double>(input[i], 0));
+	}
+
+	for (long long i = input.size(); (i & (i - 1)) != 0; i++)
+	{
+		temp.push_back(complex < double >(0, 0));
+	}
+
+	long long cnt = temp.size();
+
+	for (long long i = 0; i < cnt; i++)
+	{
+		temp.push_back(complex < double >(0, 0));
+	}
+
+	return fft(temp);
+}
+vector < complex < double > > fft(const vector < complex < double > >& input)
+{
+	const double PI = acos(-1);
+
+	long long n = input.size();
+	long long bitLen = 0; 
+	
+	for (; (1ll << bitLen) < n; bitLen++) {}
+	
+	vector<long long> rev(n);
+	rev[0] = 0;
+	
+	long long high1 = -1;
+	
+	for (long long i = 1; i < n; i++) 
+	{
+		if ((i & (i - 1)) == 0)
+		{
+			high1++;
+		}
+
+		rev[i] = rev[i ^ (1 << high1)];
+		rev[i] |= (1 << (bitLen - high1 - 1));
+	}
+
+	vector < complex < double > > roots(n);
+	for (long long i = 0; i < n; i++) 
+	{
+		double alpha = 2 * PI * i / n;
+		roots[i] = complex < double >(cos(alpha), sin(alpha));
+	}
+
+	vector < complex < double > > cur(n);
+	for (long long i = 0; i < n; i++)
+	{
+		cur[i] = input[rev[i]];
+	}
+
+	for (long long len = 1; len < n; len <<= 1) 
+	{
+		vector < complex < double > > ncur(n);
+		long long rstep = roots.size() / (len * 2);
+		
+		for (long long pdest = 0; pdest < n;) 
+		{
+			long long p1 = pdest;
+			
+			for (long long i = 0; i < len; i++) 
+			{
+				complex < double >  val = roots[i * rstep] * cur[p1 + len];
+				ncur[pdest] = cur[p1] + val;
+				ncur[pdest + len] = cur[p1] - val;
+				pdest++, p1++;
+			}
+
+			pdest += len;
+		}
+
+		cur.swap(ncur);
+	}
+
+	return cur;
+}
+vector < complex < double > > fft_rev(const vector < complex < double > >& input)
+{
+	vector < complex < double > > result = fft(input);
+
+	for (long long i = 0; i < (long long)result.size(); i++)
+	{
+		result[i] /= input.size();
+	}
+	
+	reverse(result.begin() + 1, result.end());
+	
+	return result;
 }
 
 istream& operator >> (istream& in, BigInt& number)
@@ -104,7 +259,7 @@ istream& operator >> (istream& in, BigInt& number)
 }
 ostream& operator << (ostream& out, BigInt number)
 {
-	int sign = number.sign();
+	long long sign = number.sign();
 
 	if (sign == 0)
 	{
@@ -117,9 +272,9 @@ ostream& operator << (ostream& out, BigInt number)
 		out << '-';
 	}
 
-	vector < int > digit = number.getDigit();
+	vector < long long > digit = number.getDigit();
 
-	for (int i = digit.size(); i; i--)
+	for (long long i = digit.size(); i; i--)
 	{
 		out << digit[i - 1];
 	}
@@ -139,9 +294,9 @@ bool operator > (BigInt number1, BigInt number2)
 		return 0;
 	}
 
-	vector < int > digit1 = number1.getDigit();
-	vector < int > digit2 = number2.getDigit();
-	int sign = number1.sign();
+	vector < long long > digit1 = number1.getDigit();
+	vector < long long > digit2 = number2.getDigit();
+	long long sign = number1.sign();
 
 	if ((digit1.size() > digit2.size() && sign > 0) ||
 		(digit1.size() < digit2.size() && sign < 0))
@@ -155,7 +310,7 @@ bool operator > (BigInt number1, BigInt number2)
 		return 0;
 	}
 
-	for (int i = digit1.size(); i; i--)
+	for (long long i = digit1.size(); i; i--)
 	{
 		if ((digit1[i - 1] > digit2[i - 1] && sign > 0) ||
 			(digit1[i - 1] < digit2[i - 1] && sign < 0))
@@ -173,7 +328,7 @@ bool operator > (BigInt number1, BigInt number2)
 
 	return 0;
 }
-bool operator > (BigInt number1, int number2)
+bool operator > (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 
@@ -192,9 +347,9 @@ bool operator < (BigInt number1, BigInt number2)
 		return 1;
 	}
 
-	vector < int > digit1 = number1.getDigit();
-	vector < int > digit2 = number2.getDigit();
-	int sign = number1.sign();
+	vector < long long > digit1 = number1.getDigit();
+	vector < long long > digit2 = number2.getDigit();
+	long long sign = number1.sign();
 
 	if ((digit1.size() > digit2.size() && sign > 0) ||
 		(digit1.size() < digit2.size() && sign < 0))
@@ -208,7 +363,7 @@ bool operator < (BigInt number1, BigInt number2)
 		return 1;
 	}
 
-	for (int i = digit1.size(); i; i--)
+	for (long long i = digit1.size(); i; i--)
 	{
 		if ((digit1[i - 1] > digit2[i - 1] && sign > 0) ||
 			(digit1[i - 1] < digit2[i - 1] && sign < 0))
@@ -226,7 +381,7 @@ bool operator < (BigInt number1, BigInt number2)
 
 	return 0;
 }
-bool operator < (BigInt number1, int number2)
+bool operator < (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 
@@ -237,7 +392,7 @@ bool operator >= (BigInt number1, BigInt number2)
 {
 	return !(number1 < number2);
 }
-bool operator >= (BigInt number1, int number2)
+bool operator >= (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 
@@ -248,7 +403,7 @@ bool operator <= (BigInt number1, BigInt number2)
 {
 	return !(number1 > number2);
 }
-bool operator <= (BigInt number1, int number2)
+bool operator <= (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 
@@ -262,15 +417,15 @@ bool operator == (BigInt number1, BigInt number2)
 		return 0;
 	}
 
-	vector < int > digit1 = number1.getDigit();
-	vector < int > digit2 = number2.getDigit();
+	vector < long long > digit1 = number1.getDigit();
+	vector < long long > digit2 = number2.getDigit();
 
 	if (digit1.size() != digit2.size())
 	{
 		return 0;
 	}
 
-	for (int i = 0; i < digit1.size(); i++)
+	for (long long i = 0; i < digit1.size(); i++)
 	{
 		if (digit1[i] != digit2[i])
 		{
@@ -280,7 +435,7 @@ bool operator == (BigInt number1, BigInt number2)
 
 	return 1;
 }
-bool operator == (BigInt number1, int number2)
+bool operator == (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 	return number1 == number2_BI;
@@ -290,7 +445,7 @@ bool operator != (BigInt number1, BigInt number2)
 {
 	return !(number1 == number2);
 }
-bool operator != (BigInt number1, int number2)
+bool operator != (BigInt number1, long long number2)
 {
 	return !(number1 == number2);
 }
@@ -300,7 +455,7 @@ BigInt operator + (BigInt number1, BigInt number2)
 	if (number1.getNegative() != number2.getNegative())
 	{
 		bool resultNegative;
-		vector < int > resultDigit;
+		vector < long long > resultDigit;
 
 		if (number1.abs() > number2.abs())
 		{
@@ -323,15 +478,15 @@ BigInt operator + (BigInt number1, BigInt number2)
 	}
 
 	bool resultNegative = number1.getNegative();
-	vector < int > resultDigit;
+	vector < long long > resultDigit;
 
-	vector < int > digit1 = number1.getDigit();
-	vector < int > digit2 = number2.getDigit();
+	vector < long long > digit1 = number1.getDigit();
+	vector < long long > digit2 = number2.getDigit();
 
-	int maxLen = max(digit1.size(), digit2.size());
-	int fromLast = 0;
+	long long maxLen = max(digit1.size(), digit2.size());
+	long long fromLast = 0;
 
-	for (int i = 0; i < maxLen; i++)
+	for (long long i = 0; i < maxLen; i++)
 	{
 		resultDigit.push_back(fromLast);
 		fromLast = 0;
@@ -356,7 +511,7 @@ BigInt operator + (BigInt number1, BigInt number2)
 
 	return result;
 }
-BigInt operator + (BigInt number1, int number2)
+BigInt operator + (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 	return number1 + number2_BI;
@@ -373,7 +528,7 @@ void operator += (BigInt& number1, BigInt number2)
 	number1 = number1 + number2;
 	return;
 }
-void operator += (BigInt& number1, int number2)
+void operator += (BigInt& number1, long long number2)
 {	
 	number1 = number1 + number2; 
 	return;
@@ -384,7 +539,7 @@ BigInt operator - (BigInt number1, BigInt number2)
 	if (number1.getNegative() != number2.getNegative())
 	{
 		bool resultNegative = number1.getNegative();
-		vector < int > resultDigit;
+		vector < long long > resultDigit;
 
 		BigInt temp = number1.abs() + number2.abs();
 		resultDigit = temp.getDigit();
@@ -393,9 +548,9 @@ BigInt operator - (BigInt number1, BigInt number2)
 	}
 
 	bool resultNegative;
-	vector < int > resultDigit;
-	vector < int > digit1;
-	vector < int > digit2;
+	vector < long long > resultDigit;
+	vector < long long > digit1;
+	vector < long long > digit2;
 
 	if (number1.abs() > number2.abs())
 	{
@@ -412,7 +567,7 @@ BigInt operator - (BigInt number1, BigInt number2)
 		digit2 = number1.getDigit();
 	}
 
-	for (int i = 0; i < digit2.size(); i++)
+	for (long long i = 0; i < digit2.size(); i++)
 	{
 		resultDigit.push_back(digit1[i] - digit2[i]);
 
@@ -423,7 +578,7 @@ BigInt operator - (BigInt number1, BigInt number2)
 		}
 	}
 
-	for (int i = digit2.size(); i < digit1.size(); i++)
+	for (long long i = digit2.size(); i < digit1.size(); i++)
 	{
 		resultDigit.push_back(digit1[i]);
 
@@ -439,7 +594,7 @@ BigInt operator - (BigInt number1, BigInt number2)
 
 	return result;
 }
-BigInt operator - (BigInt number1, int number2)
+BigInt operator - (BigInt number1, long long number2)
 {
 	BigInt number2_BI = BigInt(number2);
 	return number1 - number2_BI;
@@ -456,8 +611,179 @@ void operator -= (BigInt& number1, BigInt number2)
 	number1 = number1 - number2;
 	return;
 }
-void operator -= (BigInt& number1, int number2)
+void operator -= (BigInt& number1, long long number2)
 {	
 	number1 = number1 - number2;
+	return;
+}
+
+BigInt operator * (BigInt number1, BigInt number2) 
+{
+	bool resultNegative = (number1.getNegative() ^ number2.getNegative());
+
+	vector < long long > digit1 = number1.getDigit();
+	vector < long long > digit2 = number2.getDigit();
+
+	for (; digit1.size() < digit2.size();) { digit1.push_back(0); };
+	for (; digit2.size() < digit1.size();) { digit2.push_back(0); };
+
+	vector < complex < double > > number1_complex = fft(digit1);
+	vector < complex < double > > number2_complex = fft(digit2);
+
+	vector < complex < double > > complex_result;
+
+	for (long long i = 0; i < number1_complex.size(); i++)
+	{
+		complex_result.push_back(number1_complex[i] * number2_complex[i]);
+	}
+
+	vector < complex < double > > complex_result2 = fft_rev(complex_result);
+
+	vector < long long > int_result;
+	long long fromLast = 0;
+
+	for (long long i = 0; i < complex_result2.size(); i++)
+	{
+		int_result.push_back(round(complex_result2[i].real()) + fromLast);
+
+		fromLast = int_result.back() / 10;
+		int_result.back() = int_result.back() % 10;
+	}
+
+	for (; fromLast; fromLast /= 10)
+	{
+		int_result.push_back(fromLast % 10);
+	}
+
+	BigInt result = BigInt(int_result, resultNegative);
+	result.normalize();
+
+	return result;
+}
+BigInt operator * (BigInt number1, long long number2)
+{
+	BigInt number2_BI = BigInt(number2);
+
+	return number1 * number2_BI;
+}
+
+void operator *= (BigInt& number1, BigInt number2)
+{
+	number1 = number1 * number2;
+	return;
+}
+void operator *= (BigInt& number1, long long number2)
+{
+	number1 = number1 * number2;
+	return;
+}
+
+BigInt divBy2 (BigInt number1)
+{
+	bool resultNegative = number1.getNegative();
+	vector < long long > result;
+
+	vector < long long > digits = number1.getDigit();
+	long long fromLast = 0;
+
+	for (long long i = digits.size(); i; i--)
+	{
+		long long res = (digits[i - 1] + 10 * fromLast) / 2;
+		fromLast = (digits[i - 1] + 10 * fromLast) % 2;
+
+		result.push_back(res);
+	}
+
+	reverse(result.begin(), result.end());
+
+	return BigInt(result, resultNegative);
+}
+
+BigInt operator / (BigInt number1, BigInt number2) 
+{
+	if (number1.abs() < number2.abs())
+	{
+		return BigInt(0);
+	}
+
+	if (number2.sign() == 0)
+	{
+		exit(0);
+	}
+
+	bool resultNegative = (number1.getNegative() ^ number2.getNegative());
+
+	number1 = number1.abs();
+	number2 = number2.abs();
+
+	BigInt l = BigInt(0);
+	BigInt r = number1;
+	BigInt mid;
+	
+	for (; l + 1 < r; )
+	{
+		mid = (l + r);
+		mid = divBy2(mid);
+
+		if (mid * number2 > number1)
+		{
+			r = mid;
+		}
+		else
+		{
+			l = mid;
+		}
+	}
+
+	if (r * number2 > number1)
+	{
+		return BigInt(l.getDigit(), resultNegative);
+	}
+	else
+	{
+		return BigInt(r.getDigit(), resultNegative);
+	}
+}
+BigInt operator / (BigInt number1, long long number2)
+{
+	BigInt number2_BI = BigInt(number2);
+
+	return number1 / number2_BI;
+}
+
+void operator /= (BigInt& number1, BigInt number2)
+{
+	number1 = number1 / number2;
+	return;
+}
+void operator /= (BigInt& number1, long long number2)
+{
+	number1 = number1 / number2;
+	return;
+}
+
+BigInt operator % (BigInt number1, BigInt number2) 
+{
+	number2 = number2.abs();
+
+	number1 = number1 - (number1 / number2) * number2;
+
+	return number1;
+}
+BigInt operator % (BigInt number1, long long number2)
+{
+	BigInt number2_BI = BigInt(number2);
+
+	return number1 % number2_BI;
+}
+
+void operator %= (BigInt& number1, BigInt number2)
+{
+	number1 = number1 % number2;
+	return;
+}
+void operator %= (BigInt& number1, long long number2)
+{
+	number1 = number1 % number2;
 	return;
 }
